@@ -134,6 +134,7 @@ class Hero(Unit):
                          armor=armor, boots=boots, inventory=inventory)
         self.name = name
         self.inventory_for_print = {}
+        self.equipment = {Weapon: weapon, Helmet: helmet, Armor: armor, Boots: boots}
 
     def update_inventory(self):
         inventory = list(set([item.item_name for item in self.inventory]))
@@ -148,19 +149,52 @@ class Hero(Unit):
         for item in inventory:
             self.inventory_for_print[count_items(item, self.inventory)] = item
 
-    def equip(self, equipment: 'Equipment'):
-        equipment.equip()
+    def use_item(self, item_name: str):
+        if self.inventory:
+            is_there_this_item = False
+            for item in self.inventory:
+                if item.item_name == item_name:
+                    is_there_this_item = True
+                    break
+            if is_there_this_item:
+                item.use()
+                print(f'You used {item.item_name}')
+                print(f'Your stats:' + '\n'
+                      f'health = {self.health}' + '\n'
+                      f'damage = {self.damage}' + '\n'
+                      f'defense = {self.defense}')
+            else:
+                print(f'You don\'t have that item!')
+        else:
+            print('You have no items at all!')
 
-    def unequip(self, equipment: 'Equipment'):
-        self.inventory[equipment.item_name] = equipment
-        if type(equipment) == Weapon:
-            self.weapon = None
-        elif type(equipment) == Helmet:
-            self.helmet = None
-        elif type(equipment) == Armor:
-            self.armor = None
-        elif type(equipment) == Boots:
-            self.boots = None
+    def equip(self, equipment_name: str):
+        if self.inventory:
+            is_there_this_item = False
+            for item in self.inventory:
+                if item.item_name == equipment_name:
+                    is_there_this_item = True
+                    break
+            if is_there_this_item:
+                item.equip()
+                self.equipment[item.__class__] = item
+                print(f'You\'ve equipped {item.item_name}')
+            else:
+                print(f'You don\'t have that item!')
+        else:
+            print('You have no items at all!')
+
+    def unequip(self, equipment_name: 'str'):
+        for equipment in self.equipment.values():
+            print(equipment_name, equipment.item_name)
+            if not equipment:
+                continue
+            if equipment.item_name == equipment_name:
+                self.inventory_for_print[equipment.item_name] = equipment
+                self.equipment[type(equipment)] = None
+                print(f'Equipment {equipment.item_name} off')
+                print(self.equipment)
+                break
 
     def kick_from_room(self):
         print('Sadly, this is the moment when your adventure comes to an end...')
@@ -212,6 +246,10 @@ class Equipment(Item, ABC):
     def equip(self):
         pass
 
+    @abstractmethod
+    def get_item_stats(self):
+        pass
+
 
 class Weapon(Equipment):
 
@@ -223,8 +261,11 @@ class Weapon(Equipment):
     def equip(self):
         if isinstance(self.owner, Hero):
             if self.owner.weapon:
-                self.owner.unequip(self.owner.weapon)
+                self.owner.unequip(self.owner.weapon.item_name)
             self.owner.weapon = self
+
+    def get_item_stats(self):
+        return f'+{self.damage} damage with +{self.damage_spread} damage spread'
 
 
 class Helmet(Equipment):
@@ -235,7 +276,7 @@ class Helmet(Equipment):
     def equip(self):
         if isinstance(self.owner, Hero):
             if self.owner.helmet:
-                self.owner.unequip(self.owner.helmet)
+                self.owner.unequip(self.owner.helmet.item_name)
             self.owner.helmet = self
 
 
@@ -247,7 +288,7 @@ class Armor(Equipment):
     def equip(self):
         if isinstance(self.owner, Hero):
             if self.owner.armor:
-                self.owner.unequip(self.owner.armor)
+                self.owner.unequip(self.owner.armor.item_name)
             self.owner.armor = self
 
 
@@ -259,7 +300,7 @@ class Boots(Equipment):
     def equip(self):
         if isinstance(self.owner, Hero):
             if self.owner.boots:
-                self.owner.unequip(self.owner.boots)
+                self.owner.unequip(self.owner.boots.item_name)
             self.owner.boots = self
 
 
@@ -310,6 +351,7 @@ def create_a_hero():
             defense += amount * defense_grow
         points -= amount
     player = Hero(name, health, damage, defense)
+    player.inventory = [HealingItem('healing flask', 30, player), Weapon('spiked sting', 0.2, 5, player)]
     player.update_inventory()
     print(f'''You created a hero named: {name}. You have these stats:
     health : {player.health}
@@ -361,10 +403,10 @@ def start_a_game():
                 print('There is no enemies in the room!')
         elif action == '2' or action == 'O':
             print(f'''You are wearing:
-Weapon: {player.weapon}
-Helmet: {player.helmet}
-Armor: {player.armor}
-Boots: {player.boots}''')
+Weapon: {player.equipment[Weapon].get_item_stats() if player.equipment[Weapon] else player.equipment[Weapon]}
+Helmet: {player.equipment[Helmet]}
+Armor: {player.equipment[Armor]}
+Boots: {player.equipment[Boots]}''')
             print('And that is your inventory:')
             inventory_string = ''
             for key, value in player.inventory_for_print.items():
@@ -374,6 +416,22 @@ Boots: {player.boots}''')
                     inventory_string += f'{key} {value}, '
             if len(inventory_string) > 0:
                 print(inventory_string)
+                next_action = input('''What do you want?
+
+1. Use item(U).
+2. Equip some equipment(E).
+3. Take off some equipment(T).
+''')
+                if next_action == '1' or next_action == 'U':
+                    item_to_use = input('What item do you want to use? ')
+                    player.use_item(item_to_use)
+                elif next_action == '2' or next_action == 'E':
+                    equipment_to_equip = input('What equipment do you want to equip? ')
+                    player.equip(equipment_to_equip)
+                elif next_action == '3'  or next_action == 'T':
+                    equipment_to_unequip = input('What equipment do you want to take off? ')
+                    player.unequip(equipment_to_unequip)
+
             else:
                 print('\"Nothing here to look at...\"')
         elif action == '3' or action == 'G':
